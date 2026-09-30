@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHRONOS (Asys) - Gestion du Temps de Travail & Plannings Hospitaliers</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        asys: {
+                            navy: '#0F2B5C',
+                            blue: '#0052CC',
+                            light: '#EBF3FA',
+                            accent: '#00B4D8',
+                            dark: '#081A3A',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #0052CC; }
+
+        .shift-badge {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 6px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            text-transform: uppercase;
+        }
+
+        .shift-M { background-color: #E0F2FE; color: #0369A1; border: 1px solid #BAE6FD; }
+        .shift-A { background-color: #FEF3C7; color: #B45309; border: 1px solid #FDE68A; }
+        .shift-N { background-color: #312E81; color: #EEF2FF; border: 1px solid #4338CA; }
+        .shift-RTT { background-color: #DCFCE7; color: #15803D; border: 1px solid #BBF7D0; }
+        .shift-CA { background-color: #F3E8FF; color: #6B21A8; border: 1px solid #E9D5FF; }
+        .shift-G { background-color: #FFE4E6; color: #BE123C; border: 1px solid #FECDD3; }
+        .shift-OFF { background-color: #F1F5F9; color: #64748B; border: 1px solid #E2E8F0; }
+    </style>
+</head>
+<body class="h-full font-sans text-slate-800 bg-slate-100 flex flex-col antialiased select-none overflow-hidden">
+
+    <!-- Top Bar: Institutional CHRONOS Asys Branding -->
+    <header class="bg-asys-navy text-white px-6 py-3 border-b border-indigo-900 shadow-md shrink-0 z-30 flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-asys-blue to-asys-accent p-0.5 shadow-md flex items-center justify-center">
+                <div class="w-full h-full bg-asys-dark rounded-[10px] flex items-center justify-center">
+                    <i data-lucide="clock" class="w-5 h-5 text-asys-accent"></i>
+                </div>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="font-extrabold text-white text-lg tracking-tight">CHRONOS <span class="text-asys-accent font-light">Asys</span></span>
+                    <span class="bg-asys-blue text-white font-mono text-[10px] px-2 py-0.5 rounded-full font-semibold">RH & Plannings Hospitaliers</span>
+                </div>
+                <p class="text-[11px] text-slate-300 font-medium leading-none">GHU Paris - Centre Hospitalier Universitaire • Gestion du Temps de Travail</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <!-- Department Selector -->
+            <div class="flex items-center bg-indigo-950 border border-indigo-800 rounded-xl px-3 py-1.5 text-xs">
+                <i data-lucide="building-2" class="w-4 h-4 text-asys-accent mr-2"></i>
+                <span class="text-slate-400 mr-2">Service :</span>
+                <select id="departmentSelect" onchange="changeDepartment()" class="bg-transparent text-white font-bold focus:outline-none cursor-pointer">
+                    <option value="sau" class="bg-slate-900 text-white">Urgences / SAU</option>
+                    <option value="rea" class="bg-slate-900 text-white">Réanimation Polyvalente</option>
+                    <option value="cardio" class="bg-slate-900 text-white">Cardiologie Intensive</option>
+                    <option value="bloc" class="bg-slate-900 text-white">Bloc Opératoire Central</option>
+                </select>
+            </div>
+
+            <!-- Quick Export XML -->
+            <button onclick="exportChronosXML()" class="bg-asys-blue hover:bg-blue-600 text-white font-bold text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 shadow-sm transition-all">
+                <i data-lucide="file-output" class="w-4 h-4"></i>
+                <span>Exporter Planning XML</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- KPI Summary Bar -->
+    <section class="bg-white border-b border-slate-200 px-6 py-2.5 shrink-0 shadow-xs">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="flex items-center gap-3 bg-slate-50 border border-slate-200 p-2.5 rounded-xl">
+                <div class="w-9 h-9 rounded-lg bg-indigo-100 text-asys-navy flex items-center justify-center shrink-0">
+                    <i data-lucide="users" class="w-5 h-5 text-asys-blue"></i>
+                </div>
+                <div>
+                    <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Agents Inscrits</div>
+                    <div class="text-lg font-extrabold text-slate-900 font-mono" id="kpiTotalAgents">38 Agents</div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3 bg-emerald-50/60 border border-emerald-100 p-2.5 rounded-xl">
+                <div class="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                    <i data-lucide="check-check" class="w-5 h-5 text-emerald-600"></i>
+                </div>
+                <div>
+                    <div class="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Taux de Couverture</div>
+                    <div class="text-lg font-extrabold text-emerald-700 font-mono" id="kpiCouverture">94.8 %</div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3 bg-blue-50 border border-blue-100 p-2.5 rounded-xl">
+                <div class="w-9 h-9 rounded-lg bg-blue-100 text-asys-blue flex items-center justify-center shrink-0">
+                    <i data-lucide="hourglass" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <div class="text-[10px] font-bold uppercase tracking-wider text-blue-800">Heures Réserve CET</div>
+                    <div class="text-lg font-extrabold text-asys-navy font-mono" id="kpiCET">1 240 hrs</div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3 bg-rose-50 border border-rose-100 p-2.5 rounded-xl">
+                <div class="w-9 h-9 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+                    <i data-lucide="user-minus" class="w-5 h-5 text-rose-600"></i>
+                </div>
+                <div>
+                    <div class="text-[10px] font-bold uppercase tracking-wider text-rose-800">Besoin Remplacement</div>
+                    <div class="text-lg font-extrabold text-rose-700 font-mono" id="kpiRemplacements">2 Postes</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Content Workspace -->
+    <div class="flex-1 flex min-h-0 overflow-hidden">
+
+        <!-- Navigation Sidebar -->
+        <aside class="w-64 bg-asys-navy text-white border-r border-indigo-900 flex flex-col justify-between shrink-0">
+            <div class="p-3 space-y-1 overflow-y-auto">
+                <div class="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Modules CHRONOS</div>
+
+                <button onclick="switchTab('planning')" id="tab-btn-planning" class="w-full text-left px-3 py-2.5 rounded-xl font-medium text-xs flex items-center gap-3 transition-all bg-asys-blue text-white font-bold shadow-sm">
+                    <i data-lucide="calendar-range" class="w-4 h-4 text-asys-accent"></i>
+                    <span>Planning des Équipes</span>
+                </button>
+
+                <button onclick="switchTab('remplacement')" id="tab-btn-remplacement" class="w-full text-left px-3 py-2.5 rounded-xl font-medium text-xs flex items-center justify-between transition-all text-slate-300 hover:bg-indigo-950">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="user-check" class="w-4 h-4 text-amber-400"></i>
+                        <span>Remplacements Urgent</span>
+                    </div>
+                    <span class="bg-rose-600 text-white font-mono text-[10px] px-1.5 py-0.2 rounded-full font-bold">2</span>
+                </button>
+
+                <button onclick="switchTab('compteurs')" id="tab-btn-compteurs" class="w-full text-left px-3 py-2.5 rounded-xl font-medium text-xs flex items-center gap-3 transition-all text-slate-300 hover:bg-indigo-950">
+                    <i data-lucide="timer" class="w-4 h-4 text-indigo-300"></i>
+                    <span>Compteurs temps & CET</span>
+                </button>
+
+                <button onclick="switchTab('absences')" id="tab-btn-absences" class="w-full text-left px-3 py-2.5 rounded-xl font-medium text-xs flex items-center justify-between transition-all text-slate-300 hover:bg-indigo-950">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="file-check-2" class="w-4 h-4 text-emerald-400"></i>
+                        <span>Validation Demandes</span>
+                    </div>
+                    <span class="bg-indigo-800 text-indigo-200 font-mono text-[10px] px-1.5 py-0.2 rounded-full">4</span>
+                </button>
+            </div>
+
+            <!-- Cadre RH Info -->
+            <div class="p-3 bg-indigo-950 border-t border-indigo-900 text-[11px] text-slate-300">
+                <div class="font-bold text-white">Mme V. VALENTIN</div>
+                <div>Cadre Supérieur de Santé</div>
+                <div class="text-[10px] text-slate-400 font-mono mt-1">Cycle 3x8 - Semaine 40</div>
+            </div>
+        </aside>
+
+        <!-- Right Main View Area -->
+        <main class="flex-1 bg-slate-100 p-5 overflow-y-auto">
+
+            <!-- TAB 1: PLANNING DES ÉQUIPES -->
+            <div id="view-planning" class="space-y-4 block">
+                
+                <!-- Controls & Shift Legend -->
+                <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs font-bold text-slate-700">Légende des Postes :</span>
+                        <div class="flex flex-wrap gap-1.5 text-[10px]">
+                            <span class="shift-badge shift-M">Matin (06:45-14:15)</span>
+                            <span class="shift-badge shift-A">Apres-Midi (13:45-21:15)</span>
+                            <span class="shift-badge shift-N">Nuit (21:00-07:00)</span>
+                            <span class="shift-badge shift-RTT">RTT</span>
+                            <span class="shift-badge shift-CA">Congé Annuel</span>
+                            <span class="shift-badge shift-G">Garde / Astreinte</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <select id="roleFilter" onchange="renderPlanningTable()" class="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 font-semibold">
+                            <option value="ALL">Toutes les qualifications</option>
+                            <option value="IDE">IDE (Infirmières)</option>
+                            <option value="AS">AS (Aides-Soignantes)</option>
+                            <option value="MÉDECIN">Médecins Urgentistes</option>
+                        </select>
+                        <button onclick="openLeaveModal()" class="bg-indigo-50 hover:bg-indigo-100 text-asys-blue font-bold text-xs px-3 py-1.5 rounded-lg border border-indigo-200 flex items-center gap-1.5">
+                            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                            <span>Saisir une Absence</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Planning Grid Table -->
+                <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                    <div class="p-3.5 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                            <i data-lucide="calendar" class="w-4 h-4 text-asys-blue"></i>
+                            Planning Hebdomadaire - Semaine du 28 Septembre au 04 Octobre 2026
+                        </h2>
+                        <span class="text-xs text-slate-500 font-mono">24h / 24h - 7j / 7</span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold">
+                                    <th class="p-3 min-w-[180px]">Agent & Qualif.</th>
+                                    <th class="p-2 text-center min-w-[70px]">LUN 28</th>
+                                    <th class="p-2 text-center min-w-[70px]">MAR 29</th>
+                                    <th class="p-2 text-center min-w-[70px]">MER 30</th>
+                                    <th class="p-2 text-center min-w-[70px]">JEU 01</th>
+                                    <th class="p-2 text-center min-w-[70px]">VEN 02</th>
+                                    <th class="p-2 text-center min-w-[70px] bg-slate-200/50">SAM 03</th>
+                                    <th class="p-2 text-center min-w-[70px] bg-slate-200/50">DIM 04</th>
+                                    <th class="p-3 text-right">Total Hrs</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-planning" class="divide-y divide-slate-100 font-medium">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: MOTEUR DE REMPLACEMENT INTELLIGENT -->
+            <div id="view-remplacement" class="space-y-4 hidden">
+                <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+                    <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center font-bold">
+                                <i data-lucide="user-minus" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-base font-bold text-slate-900">Appels à Remplacement RTT / Arrêts Maladie</h2>
+                                <p class="text-xs text-slate-500">Algorithme de sollicitation d'agents disponibles selon les règles du repos réglementaire (11h)</p>
+                            </div>
+                        </div>
+                        <span class="bg-rose-100 text-rose-800 text-xs font-bold font-mono px-3 py-1 rounded-full border border-rose-200">
+                            2 Alertes d'Absence Unité
+                        </span>
+                    </div>
+
+                    <div class="space-y-4" id="replacementNeedsList">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: COMPTEURS TEMPS & CET -->
+            <div id="view-compteurs" class="space-y-4 hidden">
+                <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                    <div class="p-3.5 bg-indigo-50/50 border-b border-indigo-100 flex justify-between items-center">
+                        <h2 class="text-xs font-bold uppercase tracking-wider text-asys-navy flex items-center gap-2">
+                            <i data-lucide="calculator" class="w-4 h-4 text-asys-blue"></i>
+                            Compteurs Individuels & Solde Compte Épargne Temps (CET)
+                        </h2>
+                        <span class="text-xs text-slate-500 font-mono">Année Référence 2026</span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+                                    <th class="p-3">Matricule & Agent</th>
+                                    <th class="p-3">Qualif.</th>
+                                    <th class="p-3">Solde CA</th>
+                                    <th class="p-3">Solde RTT</th>
+                                    <th class="p-3">Heures Sup. Cumulées</th>
+                                    <th class="p-3">Heures Nuit</th>
+                                    <th class="p-3 text-right">Solde CET</th>
+                                    <th class="p-3 text-center">Fiche RH</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-compteurs" class="divide-y divide-slate-100">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: VALIDATION DES ABSENCES -->
+            <div id="view-absences" class="space-y-4 hidden">
+                <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+                    <h2 class="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
+                        <i data-lucide="file-check-2" class="w-5 h-5 text-emerald-600"></i>
+                        Workflow de Validation des Congés et Formations
+                    </h2>
+                    <p class="text-xs text-slate-500 mb-4">Demandes soumises par les agents en attente de visa du cadre de santé</p>
+
+                    <div class="space-y-3" id="leaveRequestsList">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Modal: Saisir Absence -->
+    <div id="leaveModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white border border-indigo-200 rounded-2xl w-full max-w-md overflow-hidden shadow-xl">
+            <div class="p-4 bg-asys-navy text-white flex justify-between items-center">
+                <h3 class="font-bold text-xs uppercase tracking-wider">Saisie d'Absence ou Congé Agent</h3>
+                <button onclick="closeLeaveModal()" class="text-slate-300 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            
+            <form onsubmit="saveNewLeave(event)" class="p-4 space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Sélectionner l'Agent</label>
+                    <select id="modalAgentSelect" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-medium">
+                        <!-- Options generated -->
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Motif / Type d'Absence</label>
+                    <select id="modalLeaveType" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-medium">
+                        <option value="AM">Arrêt Maladie (AM)</option>
+                        <option value="RTT">Réduction Temps de Travail (RTT)</option>
+                        <option value="CA">Congé Annuel (CA)</option>
+                        <option value="FORM">Formation Continuée</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Date Début</label>
+                        <input type="date" value="2026-09-30" required class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-mono">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Date Fin</label>
+                        <input type="date" value="2026-10-02" required class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-mono">
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeLeaveModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg font-semibold">Annuler</button>
+                    <button type="submit" class="px-4 py-2 bg-asys-blue hover:bg-blue-700 text-white rounded-lg font-bold shadow-sm">Enregistrer l'Absence</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Script Block -->
+    <script>
+        /* CHRONOS Staff Data */
+        const staffData = [
+            { id: "MAT-4821", name: "DURAND Claire", role: "IDE", grade: "Infirmière DE", shifts: ["M", "M", "A", "A", "OFF", "OFF", "M"], ca: 18, rtt: 5, hs: 24, nuit: 48, cet: 110 },
+            { id: "MAT-5012", name: "BENALI Youssef", role: "IDE", grade: "Infirmier DE", shifts: ["N", "N", "OFF", "OFF", "N", "N", "OFF"], ca: 14, rtt: 2, hs: 38, nuit: 140, cet: 95 },
+            { id: "MAT-3920", name: "LEFEBVRE Sophie", role: "AS", grade: "Aide-Soignante", shifts: ["M", "M", "M", "OFF", "OFF", "A", "A"], ca: 22, rtt: 8, hs: 12, nuit: 0, cet: 45 },
+            { id: "MAT-6110", name: "MOREL Thomas", role: "MÉDECIN", grade: "Pr. Urgentiste", shifts: ["G", "OFF", "M", "M", "OFF", "G", "OFF"], ca: 10, rtt: 12, hs: 65, nuit: 80, cet: 240 },
+            { id: "MAT-2901", name: "GIRARD Isabelle", role: "AS", grade: "Aide-Soignante", shifts: ["A", "A", "AM", "AM", "AM", "OFF", "OFF"], ca: 15, rtt: 4, hs: 8, nuit: 12, cet: 30 },
+            { id: "MAT-7732", name: "PETIT Antoine", role: "IDE", grade: "Infirmier DE", shifts: ["OFF", "M", "M", "A", "A", "OFF", "OFF"], ca: 20, rtt: 6, hs: 18, nuit: 24, cet: 80 }
+        ];
+
+        /* Replacement needs dataset */
+        const replacementNeeds = [
+            { id: "REP-102", agent: "GIRARD Isabelle", role: "AS", cause: "Arrêt Maladie Imprévu", date: "MER 30 Septembre (Poste Après-Midi 13:45-21:15)", candidates: ["LEFEBVRE Sophie (Repos)", "PETIT Antoine (Disponible)"] },
+            { id: "REP-103", agent: "MOREL Thomas", role: "MÉDECIN", cause: "Garde Urgence non couverte", date: "DIM 04 Octobre (Poste Garde 24h)", candidates: ["DR. ROUSSEL Marc", "DR. MARTIN Élodie"] }
+        ];
+
+        /* Pending Leave Requests */
+        const leaveRequests = [
+            { id: "REQ-301", agent: "DURAND Claire", role: "IDE", type: "Congé Annuel (CA)", dates: "12/10/2026 au 18/10/2026 (5 jours)", status: "En attente" },
+            { id: "REQ-302", agent: "BENALI Youssef", role: "IDE", type: "Réduction Temps (RTT)", dates: "08/10/2026 (1 jour)", status: "En attente" },
+            { id: "REQ-303", agent: "LEFEBVRE Sophie", role: "AS", type: "Formation Gestes d'Urgence", dates: "15/10/2026 (1 jour)", status: "En attente" }
+        ];
+
+        function renderPlanningTable() {
+            const tbody = document.getElementById("tbody-planning");
+            const filter = document.getElementById("roleFilter").value;
+
+            const filteredStaff = staffData.filter(s => filter === 'ALL' || s.role === filter);
+
+            tbody.innerHTML = filteredStaff.map(s => `
+                <tr class="hover:bg-slate-50 transition-all border-b border-slate-100">
+                    <td class="p-3">
+                        <div class="font-bold text-slate-900">${s.name}</div>
+                        <div class="text-[10px] text-slate-500 font-mono">${s.id} • <span class="text-asys-blue font-semibold">${s.grade}</span></div>
+                    </td>
+                    ${s.shifts.map(sh => `
+                        <td class="p-2 text-center">
+                            ${getShiftBadge(sh)}
+                        </td>
+                    `).join('')}
+                    <td class="p-3 text-right font-mono font-bold text-asys-navy">
+                        35h00
+                    </td>
+                </tr>
+            `).join('');
+
+            lucide.createIcons();
+        }
+
+        function getShiftBadge(shift) {
+            switch(shift) {
+                case 'M': return `<span class="shift-badge shift-M" title="Matin 06:45 - 14:15">M</span>`;
+                case 'A': return `<span class="shift-badge shift-A" title="Apres-Midi 13:45 - 21:15">A</span>`;
+                case 'N': return `<span class="shift-badge shift-N" title="Nuit 21:00 - 07:00">N</span>`;
+                case 'RTT': return `<span class="shift-badge shift-RTT">RTT</span>`;
+                case 'CA': return `<span class="shift-badge shift-CA">CA</span>`;
+                case 'G': return `<span class="shift-badge shift-G">Garde</span>`;
+                case 'AM': return `<span class="shift-badge bg-rose-600 text-white font-bold">AM</span>`;
+                default: return `<span class="shift-badge shift-OFF">RH</span>`;
+            }
+        }
+
+        function renderCompteursTable() {
+            const tbody = document.getElementById("tbody-compteurs");
+            tbody.innerHTML = staffData.map(s => `
+                <tr class="hover:bg-slate-50 transition-all border-b border-slate-100">
+                    <td class="p-3">
+                        <div class="font-bold text-slate-900">${s.name}</div>
+                        <div class="text-[10px] text-slate-500 font-mono">${s.id}</div>
+                    </td>
+                    <td class="p-3 font-semibold text-slate-700">${s.role}</td>
+                    <td class="p-3 font-mono text-slate-800">${s.ca} jrs</td>
+                    <td class="p-3 font-mono text-slate-800">${s.rtt} jrs</td>
+                    <td class="p-3 font-mono text-amber-700 font-bold">+${s.hs} hrs</td>
+                    <td class="p-3 font-mono text-indigo-900">${s.nuit} hrs</td>
+                    <td class="p-3 text-right font-mono text-sm font-extrabold text-asys-blue bg-indigo-50/50">${s.cet} hrs</td>
+                    <td class="p-3 text-center">
+                        <button onclick="showAgentCard('${s.name}')" class="p-1.5 bg-slate-100 hover:bg-indigo-100 text-asys-navy rounded-lg">
+                            <i data-lucide="eye" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+            lucide.createIcons();
+        }
+
+        function renderReplacements() {
+            const container = document.getElementById("replacementNeedsList");
+            container.innerHTML = replacementNeeds.map(r => `
+                <div class="p-4 bg-rose-50/60 border border-rose-200 rounded-xl flex flex-wrap items-center justify-between gap-3">
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-2">
+                            <span class="bg-rose-600 text-white text-[10px] font-mono font-bold px-2 py-0.5 rounded">Absence Unité</span>
+                            <span class="font-bold text-sm text-rose-950">${r.agent} (${r.role})</span>
+                        </div>
+                        <p class="text-xs text-rose-900 font-medium">${r.cause} • <strong class="font-mono">${r.date}</strong></p>
+                        <div class="text-[11px] text-slate-600 flex items-center gap-2 pt-1">
+                            <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-600"></i>
+                            <span>Candidats disponibles (Repos 11h respecté) : <strong>${r.candidates.join(", ")}</strong></span>
+                        </div>
+                    </div>
+                    <button onclick="assignReplacement('${r.id}')" class="bg-asys-blue hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xs flex items-center gap-2">
+                        <i data-lucide="user-plus" class="w-4 h-4"></i>
+                        <span>Proposer Remplacement</span>
+                    </button>
+                </div>
+            `).join('');
+
+            lucide.createIcons();
+        }
+
+        function renderLeaveRequests() {
+            const container = document.getElementById("leaveRequestsList");
+            container.innerHTML = leaveRequests.map((req, idx) => `
+                <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3">
+                    <div class="space-y-0.5">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-xs text-slate-900">${req.agent}</span>
+                            <span class="bg-indigo-100 text-indigo-800 text-[10px] font-bold px-1.5 py-0.2 rounded">${req.role}</span>
+                        </div>
+                        <p class="text-xs font-semibold text-asys-blue">${req.type} • <span class="text-slate-600 font-normal">${req.dates}</span></p>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button onclick="approveLeave(${idx})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1">
+                            <i data-lucide="check" class="w-4 h-4"></i> Valider
+                        </button>
+                        <button onclick="rejectLeave(${idx})" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1">
+                            <i data-lucide="x" class="w-4 h-4"></i> Refuser
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+
+            lucide.createIcons();
+        }
+
+        function switchTab(tabKey) {
+            ['planning', 'remplacement', 'compteurs', 'absences'].forEach(t => {
+                document.getElementById(`view-${t}`).classList.add('hidden');
+                document.getElementById(`tab-btn-${t}`).className = "w-full text-left px-3 py-2.5 rounded-xl font-medium text-xs flex items-center justify-between transition-all text-slate-300 hover:bg-indigo-950";
+            });
+
+            document.getElementById(`view-${tabKey}`).classList.remove('hidden');
+            document.getElementById(`tab-btn-${tabKey}`).className = "w-full text-left px-3 py-2.5 rounded-xl font-medium text-xs flex items-center justify-between transition-all bg-asys-blue text-white font-bold shadow-sm";
+        }
+
+        function changeDepartment() {
+            renderPlanningTable();
+        }
+
+        function assignReplacement(id) {
+            alert(`Remplacement pour le besoin ${id} affecté avec succès. Notifications SMS envoyées aux agents de garde !`);
+        }
+
+        function approveLeave(idx) {
+            leaveRequests.splice(idx, 1);
+            renderLeaveRequests();
+        }
+
+        function rejectLeave(idx) {
+            leaveRequests.splice(idx, 1);
+            renderLeaveRequests();
+        }
+
+        function openLeaveModal() {
+            const select = document.getElementById("modalAgentSelect");
+            select.innerHTML = staffData.map(s => `<option value="${s.id}">${s.name} (${s.role})</option>`).join('');
+            document.getElementById("leaveModal").classList.remove("hidden");
+        }
+
+        function closeLeaveModal() {
+            document.getElementById("leaveModal").classList.add("hidden");
+        }
+
+        function saveNewLeave(e) {
+            e.preventDefault();
+            alert("Absence enregistrée dans le moteur CHRONOS Asys ! Planning mis à jour.");
+            closeLeaveModal();
+        }
+
+        function showAgentCard(name) {
+            alert(`Fiche Temps de Travail CHRONOS pour : ${name}\nHistorique complet disponible en téléchargement RH.`);
+        }
+
+        function exportChronosXML() {
+            let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<CHRONOS_PLANNING_EXPORT date="${new Date().toISOString()}" hospital="GHU Paris">\n`;
+            xml += `  <Header>\n    <Application>CHRONOS Asys v2026.2</Application>\n    <Service>Urgences / SAU</Service>\n  </Header>\n  <PlanningAgents>\n`;
+
+            staffData.forEach(s => {
+                xml += `    <Agent matricule="${s.id}" name="${s.name}" role="${s.role}">\n`;
+                xml += `      <SoldeCET>${s.cet}</SoldeCET>\n`;
+                xml += `      <HeuresSup>${s.hs}</HeuresSup>\n`;
+                xml += `      <ShiftsWeek>${s.shifts.join(",")}</ShiftsWeek>\n`;
+                xml += `    </Agent>\n`;
+            });
+
+            xml += `  </PlanningAgents>\n</CHRONOS_PLANNING_EXPORT>`;
+
+            const blob = new Blob([xml], { type: 'application/xml' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `chronos_planning_rh_export.xml`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        window.onload = function() {
+            lucide.createIcons();
+            renderPlanningTable();
+            renderCompteursTable();
+            renderReplacements();
+            renderLeaveRequests();
+        };
+    </script>
+</body>
+</html>
